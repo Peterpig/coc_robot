@@ -42,6 +42,7 @@
 
 ### 4. 安装并启动辅助程序
 * 打开[git](https://git-scm.com/)官网，下载安装包，无脑下一步
+* 打开[python官网](https://www.python.org/downloads/release/python-3109/)下载Python 3.10.9（辅助开发时使用的py版本，其它版本可能依赖出错），安装，并添加环境变量。
 * 使用命令行执行以下命令：
 
   ```bash
