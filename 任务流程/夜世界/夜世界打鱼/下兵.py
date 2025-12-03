@@ -23,10 +23,16 @@ class 下兵(夜世界基础任务):
             self.上下文.脚本延时(3000)
             self.上下文.点击(42, 554)
 
+            最大放技能次数=40
             while self.尝试点击放兵种技能():
                 self.上下文.脚本延时(random.randint(20, 60))
                 self.上下文.置脚本状态("放兵中技能")
+                if 最大放技能次数>=40:
+                    raise RuntimeError(f"一直在放兵种技能,超过{最大放技能次数}次")
+
+            self.上下文.置脚本状态("下兵完毕，等待战斗结束",3*60)
             return True
+
         except RuntimeError as e:
             self.异常处理(e)
             return False
