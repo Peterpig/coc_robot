@@ -45,7 +45,7 @@ class 雷电模拟器操作类:
 
         self.模拟器exe路径 = self.雷电模拟器安装目录 + "dnplayer.exe"
 
-        self.已初始化=True
+        self._已初始化=True
 
 
     def 设置模拟器DPI兼容性(self, 模式="DPIUNAWARE"):
@@ -353,7 +353,7 @@ class 雷电模拟器操作类:
             time.sleep(1)
 
         # 等完全加载好桌面，比如再等5秒
-        time.sleep(10)
+        # time.sleep(10)
 
     def 关闭雷电模拟器(self):
         with self._命令行锁:
