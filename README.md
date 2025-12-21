@@ -6,7 +6,7 @@
 
 `coc_robot` 是一个基于 Python 的《部落冲突》(国际服) 自动化辅助程序，采用先进的 YOLO 图像识别技术和模块化架构设计，实现智能化的游戏操作自动化。
 
-> # ⚠️ 重要法律声明与风险警告
+> # ⚠️ 重要声明与风险警告
 >
 > ## 本项目性质
 >
@@ -545,7 +545,7 @@ git pull
 
 ## ⭐ Star History
 
-如果这个项目对你有帮助，欢迎点个 Star ⭐
+如果这个项目对你有帮助，不要点 Star ⭐，也不要传播
 
 [![Star History Chart](https://api.star-history.com/svg?repos=qilishidai/coc_robot&type=Date)](https://star-history.com/#qilishidai/coc_robot&Date)
 
