@@ -88,6 +88,14 @@ class 任务数据库:
                     设置JSON TEXT
                 )""")
 
+            # 系统配置表（用于存储协议同意状态等全局配置）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS 系统配置 (
+                    配置键 TEXT PRIMARY KEY,
+                    配置值 TEXT,
+                    更新时间 REAL
+                )""")
+
 
     # ==== 日志操作 ====
     def 记录日志(self, 机器人标志: str, 日志内容: str, 下次超时: float):
@@ -221,6 +229,34 @@ class 任务数据库:
             状态数据=完整状态
         )
 
+
+    # ==== 系统配置操作 ====
+    def 检查协议是否已同意(self) -> bool:
+        """检查用户是否已同意协议"""
+        with self._获取连接() as conn:
+            结果 = conn.execute(
+                "SELECT 配置值 FROM 系统配置 WHERE 配置键 = ?",
+                ("协议已同意",)
+            ).fetchone()
+        return 结果 is not None and 结果[0] == "true"
+
+    def 保存协议同意记录(self):
+        """保存用户同意协议的记录"""
+        with self._获取连接() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO 系统配置 VALUES (?, ?, ?)",
+                ("协议已同意", "true", time.time())
+            )
+            conn.commit()
+
+    def 撤销协议同意(self):
+        """撤销用户协议同意记录，下次启动将重新显示协议"""
+        with self._获取连接() as conn:
+            conn.execute(
+                "DELETE FROM 系统配置 WHERE 配置键 = ?",
+                ("协议已同意",)
+            )
+            conn.commit()
 
     def 获取状态历史(self, 机器人标志: str,
                      状态类型: Optional[str] = None,
