@@ -25,6 +25,7 @@ class 机器人设置:
     刷墙起始圣水: int = 100000
     是否刷主世界:bool=True
     是否刷夜世界:bool=False
+    是否刷天鹰火炮:bool=False  # 天鹰火炮成就刷取，默认关闭
     欲升级的英雄: List[str]=field(default_factory=lambda: [ "弓箭女皇", "亡灵王子", "飞盾战神"])
 
     def __post_init__(self):
