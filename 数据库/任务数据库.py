@@ -15,20 +15,136 @@ class 任务日志:
 
 @dataclass
 class 机器人设置:
-    雷电模拟器索引:int=1
-    服务器:str="国际服"
-    部落冲突包名: str | None = None
-    欲进攻的最小资源:int=700000
-    欲进攻资源建筑靠近地图边缘最小比例:float=0.5
-    开启刷墙:bool=False
-    刷墙起始金币:int=100000
-    刷墙起始圣水: int = 100000
-    是否刷主世界:bool=True
-    是否刷夜世界:bool=False
-    是否刷天鹰火炮:bool=False  # 天鹰火炮成就刷取，默认关闭
-    欲升级的英雄或建筑: List[str]=field(default_factory=lambda: ["弓箭女皇", "亡灵王子", "飞盾战神"])
-    是否升级建议升级的建筑:bool=True
-    建筑升级检查间隔:float=0.0
+    雷电模拟器索引: int = field(
+        default=1,
+        metadata={
+            "显示名称": "模拟器索引",
+            "描述": "对应雷电多开器中的模拟器ID，0表示第一个模拟器",
+            "UI类型": "spinbox",
+            "最小值": 0,
+            "最大值": 99,
+            "步进": 1
+        }
+    )
+
+    服务器: str = field(
+        default="国际服",
+        metadata={
+            "显示名称": "服务器",
+            "描述": "选择游戏服务器版本，目前只支持国际服",
+            "UI类型": "combo",
+            "选项": ["国际服", "国服"]
+        }
+    )
+
+    部落冲突包名: str | None = field(
+        default=None,
+        metadata={
+            "显示名称": "包名",
+            "描述": "游戏包名，自动根据服务器设置",
+            "UI类型": "hidden"  # 隐藏字段，不在UI中显示
+        }
+    )
+
+    欲进攻的最小资源: int = field(
+        default=700000,
+        metadata={
+            "显示名称": "最小资源",
+            "描述": "搜索村庄对方必须高过的资源总量，超过该值才会触发进攻",
+            "UI类型": "entry"
+        }
+    )
+
+    欲进攻资源建筑靠近地图边缘最小比例: float = field(
+        default=0.5,
+        metadata={
+            "显示名称": "资源边缘比例",
+            "描述": "资源建筑靠近地图边缘的比例下限（0-1），高本建议0.6，低本可设为0",
+            "UI类型": "entry"
+        }
+    )
+
+    开启刷墙: bool = field(
+        default=False,
+        metadata={
+            "显示名称": "是否开启刷墙",
+            "描述": "是否使用金币或圣水刷墙",
+            "UI类型": "bool"
+        }
+    )
+
+    刷墙起始金币: int = field(
+        default=100000,
+        metadata={
+            "显示名称": "刷墙起始金币",
+            "描述": "金币高于此数值触发刷墙任务",
+            "UI类型": "entry"
+        }
+    )
+
+    刷墙起始圣水: int = field(
+        default=100000,
+        metadata={
+            "显示名称": "刷墙起始圣水",
+            "描述": "圣水高于此数值触发刷墙任务，低本建议设置较大值避免误触发",
+            "UI类型": "entry"
+        }
+    )
+
+    是否刷主世界: bool = field(
+        default=True,
+        metadata={
+            "显示名称": "是否刷主世界",
+            "描述": "是否启用主世界打鱼模式",
+            "UI类型": "bool"
+        }
+    )
+
+    是否刷夜世界: bool = field(
+        default=False,
+        metadata={
+            "显示名称": "是否刷夜世界",
+            "描述": "是否启用夜世界打鱼模式",
+            "UI类型": "bool"
+        }
+    )
+
+    是否刷天鹰火炮: bool = field(
+        default=False,
+        metadata={
+            "显示名称": "是否刷天鹰火炮",
+            "描述": "开启后会自动搜索天鹰火炮并使用雷电法术攻击，用于刷成就",
+            "UI类型": "bool"
+        }
+    )
+
+    欲升级的英雄或建筑: List[str] = field(
+        default_factory=lambda: ["弓箭女皇", "亡灵王子", "飞盾战神"],
+        metadata={
+            "显示名称": "欲升级的英雄或建筑",
+            "描述": "选择想要升级的英雄或建筑，可多选、添加自定义项",
+            "UI类型": "editable_list",
+            "默认选项": ["野蛮人之王", "弓箭女皇", "亡灵王子", "飞盾战神", "大守护者"]
+        }
+    )
+
+    是否升级建议升级的建筑: bool = field(
+        default=True,
+        metadata={
+            "显示名称": "升级建议建筑",
+            "描述": "是否自动升级系统建议的建筑",
+            "UI类型": "bool"
+        }
+    )
+
+    建筑升级检查间隔: float = field(
+        default=0.0,
+        metadata={
+            "显示名称": "升级检查间隔(小时)",
+            "描述": "检查建筑升级的时间间隔，单位为小时，0表示每次都检查",
+            "UI类型": "entry"
+        }
+    )
 
     def __post_init__(self):
         self.部落冲突包名 = ("com.supercell.clashofclans"
@@ -49,6 +165,7 @@ class 任务数据库:
     def __init__(self, 文件路径=os.path.join(os.path.dirname(__file__), '任务系统.db')):
         self.文件路径 = 文件路径
         self._初始化表结构()
+        self._执行数据迁移()
 
     def _获取连接(self):
         """获取线程安全连接"""
@@ -99,8 +216,42 @@ class 任务数据库:
                     更新时间 REAL
                 )""")
 
+    def _执行数据迁移(self):
+        """执行数据库字段迁移，确保兼容性
 
-    # ==== 日志操作 ====
+        迁移内容：
+        - 欲升级的英雄 -> 欲升级的英雄或建筑
+        """
+        字段映射 = {
+            "欲升级的英雄": "欲升级的英雄或建筑"
+        }
+
+        with self._获取连接() as conn:
+            结果列表 = conn.execute("SELECT 机器人标志, 设置JSON FROM 机器人设置").fetchall()
+
+            for 机器人标志, 设置JSON in 结果列表:
+                配置字典 = json.loads(设置JSON)
+                需要更新 = False
+
+                # 检查并迁移旧字段名
+                for 旧字段名, 新字段名 in 字段映射.items():
+                    if 旧字段名 in 配置字典:
+                        # 如果新字段名不存在，则迁移旧值
+                        if 新字段名 not in 配置字典:
+                            配置字典[新字段名] = 配置字典[旧字段名]
+                        # 删除旧字段名
+                        del 配置字典[旧字段名]
+                        需要更新 = True
+
+                # 如果有修改，保存回数据库
+                if 需要更新:
+                    conn.execute(
+                        "UPDATE 机器人设置 SET 设置JSON = ? WHERE 机器人标志 = ?",
+                        (json.dumps(配置字典), 机器人标志)
+                    )
+
+            if 结果列表:
+                conn.commit()
     def 记录日志(self, 机器人标志: str, 日志内容: str, 下次超时: float):
         """原子化日志记录
         下次超时:为下次超时的时间戳
