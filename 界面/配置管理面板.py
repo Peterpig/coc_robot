@@ -175,7 +175,7 @@ class 配置管理面板(ttk.Frame):
 
             # 根据配置选择对应的英雄
             for idx, 英雄 in enumerate(欲升级英雄控件.get(0, tk.END)):
-                if 英雄 in 配置.欲升级的英雄:
+                if 英雄 in 配置.欲升级的英雄或建筑:
                     欲升级英雄控件.selection_set(idx)
 
     def 清空表单(self):
@@ -273,7 +273,7 @@ class 配置管理面板(ttk.Frame):
                 是否刷夜世界=True if 配置数据["辅助运行模式"] == "只打夜世界" or 配置数据["辅助运行模式"] == "先打满主世界再打夜世界" else False,
                 是否刷主世界=True if 配置数据["辅助运行模式"] == "只打主世界" or 配置数据["辅助运行模式"] == "先打满主世界再打夜世界" else False,
                 是否刷天鹰火炮=True if 配置数据.get("是否刷天鹰火炮") == "开启" else False,
-                欲升级的英雄=配置数据.get("欲升级的英雄", []),
+                欲升级的英雄或建筑=配置数据.get("欲升级的英雄", []),
             )
         except ValueError as e:
             messagebox.showerror("配置错误", f"数值格式错误: {str(e)}")
