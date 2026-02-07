@@ -2,9 +2,24 @@
 
 > 本教程详细讲解如何使用YOLO检测器，从数据集收集、标注、训练到部署的完整流程。
 
+## ⚠️ 重要说明：项目自带检测器的能力范围
+
+**项目自带的YOLO检测器（`模块/检测/YOLO检测器/模型/best.onnx`）只能检测以下4种目标：**
+
+| 类别 | 说明 |
+|------|------|
+| 金矿 | 金矿采集器 |
+| 金库 | 金币存储建筑 |
+| 圣水采集器 | 圣水采集建筑 |
+| 圣水瓶 | 圣水存储建筑 |
+
+**如果你需要检测其他目标**（如天鹰火炮、大本营、城墙、兵种等），**必须自己收集数据并训练模型**。本文档将详细指导你完成这一过程。
+
+---
+
 ## 🎯 适合人群
 
-- ✅ 需要识别游戏中的特定目标（建筑、兵种等）
+- ✅ 需要识别游戏中的**自带模型不支持的目标**（如天鹰火炮、兵种等）
 - ✅ 有一定Python基础
 - ✅ 了解机器学习基本概念（可选）
 
@@ -68,43 +83,149 @@ from 模块.检测 import 线程安全YOLO检测器
 # ]
 ```
 
-**默认类别**：`["金矿", "金库", "圣水采集器", "圣水瓶"]`
+**⚠️ 默认模型仅支持以下4个类别**：`["金矿", "金库", "圣水采集器", "圣水瓶"]`
+
+如需检测其他类别，请按照本文档后续步骤训练自己的模型。
 
 ---
 
 ## 2️⃣ 环境准备
 
-### 安装依赖
+### 运行环境 vs 训练环境
+
+| 环境 | 用途 | 依赖 |
+|------|------|------|
+| **运行环境** | 使用已训练的模型检测 | `onnxruntime`, `opencv-python`, `numpy`, `pillow`（项目已自带） |
+| **训练环境** | 训练自己的模型 | 需要克隆 YOLOv5 仓库并安装依赖 |
+
+**如果你只是使用项目自带的检测器**，无需安装任何额外依赖，项目的 `requirements.txt` 已包含所有必要的库。
+
+**如果你需要训练自己的模型**，请按以下步骤安装：
+
+### 安装训练环境依赖
 
 ```bash
-# 1. 安装YOLOv5（用于训练）
-pip install ultralytics
+# 1. 克隆官方 YOLOv5 仓库
+git clone https://github.com/ultralytics/yolov5.git
+cd yolov5
 
-# 2. 安装标注工具
+# 2. 安装依赖（会自动安装 PyTorch 等）
+pip install -r requirements.txt
+
+# 3. 验证安装
+python detect.py --weights yolov5s.pt --source data/images
+
+# 4. 安装标注工具（在项目根目录执行）
 pip install labelImg
-
-# 3. 已安装的依赖（项目自带）
-# - onnxruntime
-# - opencv-python
-# - numpy
-# - pillow
 ```
 
-### GPU支持（可选，加速训练）
+### GPU支持（推荐，大幅加速训练）
+
+YOLOv5 的 `requirements.txt` 默认安装 CPU 版本的 PyTorch。如果你有 NVIDIA 显卡，建议手动安装 CUDA 版本：
 
 ```bash
-# 安装CUDA版本的PyTorch
+# 先卸载 CPU 版本
+pip uninstall torch torchvision torchaudio
+
+# 安装 CUDA 版本（以 CUDA 11.8 为例）
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-# 验证GPU
-python -c "import torch; print(torch.cuda.is_available())"
+# 验证 GPU 是否可用
+python -c "import torch; print(f'CUDA可用: {torch.cuda.is_available()}')"
 ```
+
+**注意**：
+- 训练时使用 GPU 比 CPU 快 10-50 倍
+- 如果没有 GPU，训练时间会非常长，建议使用云 GPU 服务（如 Google Colab）
+- CUDA 版本需要与你的 NVIDIA 驱动版本兼容
 
 ---
 
 ## 3️⃣ 数据集收集
 
-### 方法1：手动截图（推荐）
+### 方法1：在搜索敌人时自动采集（推荐）
+
+**这是最高效的采集方式**！在正常游戏流程中自动收集敌人村庄的截图，可以获得大量多样化的建筑样本。
+
+**步骤**：在你的搜索敌人任务中添加采集代码
+
+```python
+# 在任务流程中添加采集代码示例
+
+from 任务流程.基础任务框架 import 基础任务
+import cv2
+import time
+from pathlib import Path
+
+class 搜索敌人并采集数据(基础任务):
+    """在搜索敌人时自动采集训练数据"""
+
+    def __init__(self, 上下文):
+        super().__init__(上下文)
+        # 创建数据集目录
+        self.数据集目录 = Path("dataset/raw")
+        self.数据集目录.mkdir(parents=True, exist_ok=True)
+        self.采集计数 = 0
+
+    def 执行(self) -> bool:
+        try:
+            上下文 = self.上下文
+
+            # 1. 进入搜索界面
+            # ... 你的进入搜索逻辑 ...
+
+            # 2. 循环搜索敌人
+            for i in range(100):  # 搜索100个敌人
+                上下文.置脚本状态(f"搜索第 {i+1} 个敌人")
+
+                # 点击搜索按钮
+                # 上下文.点击(搜索按钮x, 搜索按钮y, 1000)
+
+                # 等待加载完成
+                上下文.脚本延时(2000)
+
+                # === 关键：采集敌人村庄截图 ===
+                self.采集当前画面()
+
+                # 点击下一个（继续搜索）
+                # 上下文.点击(下一个按钮x, 下一个按钮y, 500)
+
+            return True
+
+        except Exception as e:
+            self.异常处理(e)
+            return False
+
+    def 采集当前画面(self):
+        """采集当前屏幕并保存"""
+        上下文 = self.上下文
+
+        # 截取游戏画面
+        屏幕图像 = 上下文.op.获取屏幕图像cv(0, 0, 800, 600)
+
+        # 生成唯一文件名（时间戳 + 计数）
+        时间戳 = int(time.time() * 1000)
+        文件名 = self.数据集目录 / f"enemy_{时间戳}_{self.采集计数:05d}.png"
+
+        # 保存图像
+        cv2.imwrite(str(文件名), 屏幕图像)
+
+        self.采集计数 += 1
+        上下文.置脚本状态(f"已采集 {self.采集计数} 张图像")
+```
+
+**优点**：
+- ✅ 自动化采集，无需人工操作
+- ✅ 图像多样性高（不同玩家的村庄布局不同）
+- ✅ 可以在挂机时顺便采集
+- ✅ 一次运行可采集数百张图像
+
+**技巧**：
+- 在不同时间段运行，获取不同光照效果
+- 在不同大本等级段搜索，获取不同建筑
+- 每次搜索后等待2-3秒再截图，确保画面加载完成
+
+### 方法2：手动截图
 
 **步骤**：
 
@@ -141,7 +262,7 @@ python -c "import torch; print(torch.cuda.is_available())"
      - 推荐：每个类别200-500张
      - 最佳：每个类别1000+张
 
-### 方法2：自动采集脚本
+### 方法3：定时自动采集脚本
 
 ```python
 # 自动采集数据集.py
@@ -373,67 +494,76 @@ names:
 
 ### 训练脚本
 
+**方法1：使用命令行训练（推荐）**
+
+```bash
+# 进入 YOLOv5 目录
+cd yolov5
+
+# 开始训练
+python train.py \
+    --data ../dataset/coc_dataset.yaml \
+    --weights yolov5s.pt \
+    --epochs 100 \
+    --batch-size 16 \
+    --img 640 \
+    --device 0 \
+    --project ../runs/train \
+    --name coc_detect
+
+# 参数说明：
+# --data: 数据集配置文件路径
+# --weights: 预训练模型（yolov5n/s/m/l/x.pt）
+# --epochs: 训练轮数
+# --batch-size: 批次大小（根据显存调整）
+# --img: 输入图像大小
+# --device: 0=GPU, cpu=CPU
+# --project: 输出目录
+# --name: 实验名称
+```
+
+**方法2：使用 Python 脚本训练**
+
 ```python
 # train_yolo.py
+# 在 yolov5 目录下运行
 
-from ultralytics import YOLO
+import subprocess
+import sys
 
 def 训练模型(
-    数据集配置="dataset/coc_dataset.yaml",
-    预训练模型="yolov5n.pt",  # n(nano) < s < m < l < x
+    数据集配置="../dataset/coc_dataset.yaml",
+    预训练模型="yolov5s.pt",  # n(nano) < s < m < l < x
     训练轮数=100,
     图像大小=640,
     批次大小=16,
     设备="0"  # "0"=GPU, "cpu"=CPU
 ):
-    """训练YOLO模型"""
+    """使用 YOLOv5 train.py 训练模型"""
 
-    # 加载预训练模型
-    模型 = YOLO(预训练模型)
+    命令 = [
+        sys.executable, "train.py",
+        "--data", 数据集配置,
+        "--weights", 预训练模型,
+        "--epochs", str(训练轮数),
+        "--batch-size", str(批次大小),
+        "--img", str(图像大小),
+        "--device", 设备,
+        "--project", "../runs/train",
+        "--name", "coc_detect",
+        "--cache",  # 缓存图像加速训练
+    ]
 
-    # 开始训练
-    结果 = 模型.train(
-        data=数据集配置,
-        epochs=训练轮数,
-        imgsz=图像大小,
-        batch=批次大小,
-        device=设备,
-        project="runs/train",
-        name="coc_detect",
-
-        # 可选参数
-        patience=50,  # 早停耐心值
-        save=True,  # 保存模型
-        cache=True,  # 缓存图像加速训练
-        workers=4,  # 数据加载线程数
-        pretrained=True,  # 使用预训练权重
-        optimizer='SGD',  # 优化器
-        verbose=True,  # 显示详细日志
-
-        # 数据增强
-        hsv_h=0.015,  # 色调
-        hsv_s=0.7,  # 饱和度
-        hsv_v=0.4,  # 明度
-        degrees=0.0,  # 旋转角度
-        translate=0.1,  # 平移
-        scale=0.5,  # 缩放
-        shear=0.0,  # 剪切
-        flipud=0.0,  # 上下翻转
-        fliplr=0.5,  # 左右翻转
-        mosaic=1.0,  # mosaic增强
-    )
+    print(f"执行命令: {' '.join(命令)}")
+    subprocess.run(命令, check=True)
 
     print("\n训练完成！")
-    print(f"最佳模型: {结果.save_dir / 'weights' / 'best.pt'}")
-    print(f"最后模型: {结果.save_dir / 'weights' / 'last.pt'}")
-
-    return 结果
+    print(f"最佳模型: runs/train/coc_detect/weights/best.pt")
 
 if __name__ == "__main__":
-    # 开始训练
     训练模型(
-        数据集配置="dataset/coc_dataset.yaml",
-        预训练模型="yolov5n.pt",  # 轻量级模型
+        数据集配置="../dataset/coc_dataset.yaml",
+        预训练模型="yolov5s.pt",
         训练轮数=100,
         批次大小=16
     )
@@ -489,71 +619,76 @@ runs/train/coc_detect/
 
 ### 验证模型性能
 
-```python
-from ultralytics import YOLO
-
-# 加载训练好的模型
-模型 = YOLO("runs/train/coc_detect/weights/best.pt")
+```bash
+# 在 yolov5 目录下运行
+cd yolov5
 
 # 在验证集上测试
-结果 = 模型.val(
-    data="dataset/coc_dataset.yaml",
-    imgsz=640,
-    batch=16,
-    conf=0.25,  # 置信度阈值
-    iou=0.45,   # NMS IoU阈值
-    device="0"
-)
+python val.py \
+    --data ../dataset/coc_dataset.yaml \
+    --weights ../runs/train/coc_detect/weights/best.pt \
+    --img 640 \
+    --batch-size 16 \
+    --conf-thres 0.25 \
+    --iou-thres 0.45 \
+    --device 0
 
-# 打印结果
-print(f"mAP50: {结果.box.map50:.4f}")
-print(f"mAP50-95: {结果.box.map:.4f}")
+# 输出会显示 mAP50、mAP50-95、Precision、Recall 等指标
 ```
 
 ### 单张图像测试
 
-```python
-from ultralytics import YOLO
-import cv2
+```bash
+# 检测单张图像
+python detect.py \
+    --weights ../runs/train/coc_detect/weights/best.pt \
+    --source test_image.png \
+    --img 640 \
+    --conf-thres 0.25 \
+    --save-txt \
+    --save-conf \
+    --project ../runs/detect \
+    --name test
 
-# 加载模型
-模型 = YOLO("runs/train/coc_detect/weights/best.pt")
-
-# 推理
-结果列表 = 模型.predict(
-    source="test_image.png",
-    imgsz=640,
-    conf=0.25,
-    save=True,  # 保存结果图像
-    project="runs/predict",
-    name="test"
-)
-
-# 解析结果
-for 结果 in 结果列表:
-    boxes = 结果.boxes
-    for box in boxes:
-        类别 = int(box.cls[0])
-        置信度 = float(box.conf[0])
-        坐标 = box.xyxy[0].tolist()  # [x1, y1, x2, y2]
-
-        print(f"类别: {模型.names[类别]}")
-        print(f"置信度: {置信度:.4f}")
-        print(f"坐标: {坐标}")
+# 结果保存在 runs/detect/test/ 目录
 ```
 
 ### 批量测试
 
-```python
+```bash
 # 测试整个目录
-模型.predict(
-    source="dataset/images/val",
-    imgsz=640,
-    conf=0.25,
-    save=True,
-    project="runs/predict",
-    name="val_results"
-)
+python detect.py \
+    --weights ../runs/train/coc_detect/weights/best.pt \
+    --source ../dataset/images/val \
+    --img 640 \
+    --conf-thres 0.25 \
+    --project ../runs/detect \
+    --name val_results
+```
+
+### Python 代码测试
+
+```python
+# 在 yolov5 目录下运行
+import torch
+
+# 加载模型
+模型 = torch.hub.load('.', 'custom',
+                       path='../runs/train/coc_detect/weights/best.pt',
+                       source='local')
+
+# 推理
+结果 = 模型('test_image.png')
+
+# 打印结果
+结果.print()
+
+# 保存结果图像
+结果.save()
+
+# 获取检测框数据
+检测数据 = 结果.pandas().xyxy[0]
+print(检测数据)
 ```
 
 ---
@@ -567,51 +702,33 @@ for 结果 in 结果列表:
 - ✅ 不依赖PyTorch
 - ✅ 项目使用ONNX Runtime
 
-### 导出脚本
+### 导出命令
 
-```python
-# export_onnx.py
+```bash
+# 在 yolov5 目录下运行
+cd yolov5
 
-from ultralytics import YOLO
+# 导出 ONNX 模型
+python export.py \
+    --weights ../runs/train/coc_detect/weights/best.pt \
+    --img 640 \
+    --batch-size 1 \
+    --include onnx \
+    --simplify \
+    --opset 12
 
-def 导出ONNX(
-    模型路径="runs/train/coc_detect/weights/best.pt",
-    输出目录="模块/检测/YOLO检测器/模型",
-    简化=True
-):
-    """将PT模型导出为ONNX格式"""
+# 导出的 ONNX 文件会保存在 weights 同目录下
+# 即：runs/train/coc_detect/weights/best.onnx
+```
 
-    # 加载模型
-    模型 = YOLO(模型路径)
+### 复制到项目目录
 
-    # 导出ONNX
-    onnx路径 = 模型.export(
-        format="onnx",
-        imgsz=640,
-        simplify=简化,  # 简化模型结构
-        opset=12,  # ONNX opset版本
-        dynamic=False  # 固定输入尺寸
-    )
+```bash
+# 备份原模型
+mv ../模块/检测/YOLO检测器/模型/best.onnx ../模块/检测/YOLO检测器/模型/best.onnx.bak
 
-    print(f"\n导出成功！")
-    print(f"ONNX模型: {onnx路径}")
-
-    # 可选：复制到项目目录
-    import shutil
-    from pathlib import Path
-
-    目标路径 = Path(输出目录) / "best.onnx"
-    目标路径.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(onnx路径, 目标路径)
-    print(f"已复制到: {目标路径}")
-
-    return onnx路径
-
-if __name__ == "__main__":
-    导出ONNX(
-        模型路径="runs/train/coc_detect/weights/best.pt",
-        输出目录="模块/检测/YOLO检测器/模型"
-    )
+# 复制新模型
+cp ../runs/train/coc_detect/weights/best.onnx ../模块/检测/YOLO检测器/模型/best.onnx
 ```
 
 ### 验证ONNX模型
@@ -635,12 +752,46 @@ import cv2
 输出 = 会话.run(None, {输入名: 输入张量})
 
 print("ONNX模型运行正常！")
-print(f"输出形状: {output[0].shape}")
+print(f"输出形状: {输出[0].shape}")
 ```
 
 ---
 
 ## 8️⃣ 在项目中使用
+
+### 替换默认模型
+
+训练完成后，你需要用自己的模型替换项目默认模型。
+
+**方法1：替换默认模型文件（推荐）**
+
+```bash
+# 备份原模型
+mv 模块/检测/YOLO检测器/模型/best.onnx 模块/检测/YOLO检测器/模型/best.onnx.bak
+
+# 复制你的模型
+cp your_model.onnx 模块/检测/YOLO检测器/模型/best.onnx
+```
+
+然后修改 `模块/检测/YOLO检测器/yolo.py` 第340行的类别列表：
+
+```python
+# 修改默认类别列表为你的类别
+if 类别列表 is None:
+    类别列表 = ["你的类别1", "你的类别2", "你的类别3"]  # 修改为你训练的类别
+```
+
+**方法2：使用自定义路径（不影响默认模型）**
+
+```python
+from 模块.检测 import 线程安全YOLO检测器
+
+# 使用自定义模型路径和类别
+检测器 = 线程安全YOLO检测器(
+    模型路径="path/to/your_model.onnx",
+    类别列表=["类别1", "类别2", "类别3"]
+)
+```
 
 ### 方法1：使用主检测器（推荐）
 
@@ -824,24 +975,26 @@ class 自动收集资源(基础任务):
 
 ### 1. 提高检测精度
 
-**数据增强**：
+**数据增强**（在 YOLOv5 训练时使用 hyp.yaml 配置）：
 
-```python
-# 在训练时增加数据增强
-模型.train(
-    # ...
-    mosaic=1.0,      # Mosaic增强
-    mixup=0.1,       # Mixup增强
-    copy_paste=0.1,  # Copy-Paste增强
-    hsv_h=0.015,     # 色调变化
-    hsv_s=0.7,       # 饱和度变化
-    hsv_v=0.4,       # 明度变化
-    degrees=0.0,     # 旋转（游戏通常不需要）
-    translate=0.1,   # 平移
-    scale=0.5,       # 缩放
-    fliplr=0.5       # 左右翻转
-)
+```bash
+# 训练时使用自定义超参数
+python train.py \
+    --data ../dataset/coc_dataset.yaml \
+    --weights yolov5s.pt \
+    --epochs 100 \
+    --hyp data/hyps/hyp.scratch-high.yaml  # 使用高数据增强配置
 ```
+
+常用数据增强参数（在 hyp.yaml 中配置）：
+- `mosaic: 1.0` - Mosaic 增强
+- `mixup: 0.1` - Mixup 增强
+- `hsv_h: 0.015` - 色调变化
+- `hsv_s: 0.7` - 饱和度变化
+- `hsv_v: 0.4` - 明度变化
+- `translate: 0.1` - 平移
+- `scale: 0.5` - 缩放
+- `fliplr: 0.5` - 左右翻转
 
 **多模型集成**：
 
@@ -867,28 +1020,22 @@ class 集成检测(基础任务):
 
 ### 2. 优化推理速度
 
-**使用TensorRT（NVIDIA GPU）**：
+**使用 TensorRT（NVIDIA GPU）**：
 
-```python
-# 导出TensorRT引擎
-模型.export(format="engine", device=0, half=True)
-
-# TensorRT推理速度更快
+```bash
+# 在 yolov5 目录下导出 TensorRT 引擎
+python export.py \
+    --weights ../runs/train/coc_detect/weights/best.pt \
+    --include engine \
+    --device 0 \
+    --half  # 使用 FP16 加速
 ```
 
-**降低图像大小**（牺牲精度）：
+**使用更小的模型**：
 
-```python
-# 使用更小的输入尺寸
-检测结果 = 模型.predict(图像, imgsz=320)  # 默认640
-```
-
-**批量推理**：
-
-```python
-# 一次推理多张图像
-图像列表 = [图1, 图2, 图3]
-结果列表 = 模型.predict(图像列表, imgsz=640)
+```bash
+# 使用 yolov5n（nano）而不是 yolov5s
+python train.py --weights yolov5n.pt ...
 ```
 
 ### 3. 处理小目标
@@ -950,6 +1097,25 @@ def 二次确认检测(self, 目标):
 
 ## 🐛 常见问题
 
+### 问题0：为什么默认模型只能检测4种类别？
+
+**解答**：
+
+项目自带的 `best.onnx` 模型是使用特定数据集训练的，该数据集只包含4种资源建筑：
+- 金矿
+- 金库
+- 圣水采集器
+- 圣水瓶
+
+YOLO模型只能检测**训练时包含的类别**。如果你需要检测其他目标（如天鹰火炮、大本营、城墙、兵种等），必须：
+
+1. 收集包含这些目标的图像
+2. 标注这些目标
+3. 训练自己的模型
+4. 替换或新增模型文件
+
+这就是本文档存在的意义 —— 教你如何训练自己的检测模型。
+
 ### 问题1：训练时显存不足
 
 **错误信息**：
@@ -958,18 +1124,18 @@ CUDA out of memory
 ```
 
 **解决方案**：
-```python
+```bash
 # 1. 减小批次大小
-模型.train(batch=8)  # 或4、2
+python train.py --batch-size 8 ...  # 或 4、2
 
 # 2. 使用更小的模型
-模型 = YOLO("yolov5n.pt")  # 而不是yolov5s.pt
+python train.py --weights yolov5n.pt ...  # nano 模型
 
 # 3. 减小图像大小（不推荐，项目固定640）
-模型.train(imgsz=416)
+python train.py --img 416 ...
 
-# 4. 使用CPU训练（极慢）
-模型.train(device="cpu")
+# 4. 使用 CPU 训练（极慢）
+python train.py --device cpu ...
 ```
 
 ### 问题2：检测结果不准确
@@ -979,20 +1145,22 @@ CUDA out of memory
 - 数据质量差（模糊、遮挡）
 - 训练轮数不够
 - 类别不平衡
+- **使用默认模型检测不支持的类别**（默认模型只支持：金矿、金库、圣水采集器、圣水瓶）
 
 **解决方案**：
-```python
-# 1. 增加训练数据
-# 每个类别至少200张
+```bash
+# 1. 确认你需要检测的类别是否在默认模型支持范围内
+# 默认支持：["金矿", "金库", "圣水采集器", "圣水瓶"]
+# 如需检测其他类别，必须训练自己的模型
 
-# 2. 提高数据质量
-# 删除模糊、遮挡的图像
+# 2. 增加训练数据（每个类别至少200张）
 
-# 3. 增加训练轮数
-模型.train(epochs=200)
+# 3. 提高数据质量（删除模糊、遮挡的图像）
 
-# 4. 平衡各类别样本数量
-# 或使用类别权重
+# 4. 增加训练轮数
+python train.py --epochs 200 ...
+
+# 5. 平衡各类别样本数量
 ```
 
 ### 问题3：ONNX导出失败
@@ -1005,10 +1173,10 @@ ONNX export failed
 **解决方案**：
 ```bash
 # 更新依赖
-pip install --upgrade onnx onnxruntime ultralytics
+pip install --upgrade onnx onnxruntime
 
-# 或指定opset版本
-模型.export(format="onnx", opset=11)
+# 或指定 opset 版本
+python export.py --weights best.pt --include onnx --opset 11
 ```
 
 ### 问题4：推理速度慢
@@ -1022,22 +1190,22 @@ pip install --upgrade onnx onnxruntime ultralytics
    会话 = ort.InferenceSession(模型路径, providers=providers)
    ```
 
-2. **减小输入尺寸**（牺牲精度）
-   ```python
-   # 不推荐，项目固定640
+2. **使用更小的模型**
+   ```bash
+   # 训练时使用 yolov5n（nano）
+   python train.py --weights yolov5n.pt ...
    ```
 
 3. **使用TensorRT**
-   ```python
-   模型.export(format="engine")
+   ```bash
+   python export.py --weights best.pt --include engine --device 0 --half
    ```
 
 ### 问题5：训练中断后恢复
 
-```python
+```bash
 # 从最后一次保存的权重继续训练
-模型 = YOLO("runs/train/coc_detect/weights/last.pt")
-模型.train(resume=True)
+python train.py --resume ../runs/train/coc_detect/weights/last.pt
 ```
 
 ---
