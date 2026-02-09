@@ -146,6 +146,15 @@ class 机器人设置:
         }
     )
 
+    是否采集进攻界面图像: bool = field(
+        default=False,
+        metadata={
+            "显示名称": "是否采集进攻界面图像",
+            "描述": "开启此选项后，每搜索一次村庄都会截图一张保存到磁盘中，保存在项目路径的dataset/raw文件夹中，采集的图片用于训练yolo模型，此选项为高级用户使用",
+            "UI类型": "bool"
+        }
+    )
+
     def __post_init__(self):
         self.部落冲突包名 = ("com.supercell.clashofclans"
                         if self.服务器 == "国际服" else

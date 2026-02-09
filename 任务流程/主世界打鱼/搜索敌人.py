@@ -1,4 +1,7 @@
 import time
+from pathlib import Path
+
+import cv2
 
 from 任务流程.基础任务框架 import 任务上下文, 基础任务
 from 任务流程.主世界打鱼.进攻坐标逻辑计算 import 坐标, 判断目标点到可进攻边缘距离是否小于设定值
@@ -10,6 +13,33 @@ from 模块.检测.模板匹配器 import 模板匹配引擎
 
 class 搜索目标敌人任务(基础任务):
     """必须在找鱼的界面调用,也就是界面包含了敌人的村庄以及下一个按钮.自动搜索并评估敌人资源,和资源建筑位置，符合条件时返回"""
+
+    def __init__(self, 上下文):
+        super().__init__(上下文)
+        # 创建数据集目录
+        self.数据集目录 = Path("dataset/raw")
+        self.数据集目录.mkdir(parents=True, exist_ok=True)
+        self.目录文件数 = len(list(self.数据集目录.glob("*.png")))
+
+    def 采集当前画面(self):
+        """采集当前屏幕并保存"""
+        上下文 = self.上下文
+
+        # 截取游戏画面
+        屏幕图像 = 上下文.op.获取屏幕图像cv(0, 0, 800, 600)
+
+        # 生成唯一文件名（时间戳 + 计数）
+        时间戳 = int(time.time() * 1000)
+        文件名 = self.数据集目录 / f"img_{时间戳}_{self.目录文件数 + 1:05d}.png"
+
+
+
+        # 保存图像
+        cv2.imwrite(str(文件名), 屏幕图像)
+
+        上下文.置脚本状态(f"目前总共已采集 {self.目录文件数 + 1} 张图像")
+
+        self.目录文件数 = len(list(self.数据集目录.glob("*.png")))
 
     def 执行(self) -> bool:
         try:
@@ -29,6 +59,7 @@ class 搜索目标敌人任务(基础任务):
                     最小资源 = self.调整搜索目标(上下文, 原始目标, 搜索次数)
 
                 搜索次数 += 1
+
                 上下文.脚本延时(500)
 
         except Exception as e:
@@ -39,6 +70,9 @@ class 搜索目标敌人任务(基础任务):
         """执行单次搜索流程，返回是否找到合适目标"""
         if not self.等待下一个按钮出现(上下文):
             raise RuntimeError("未找到下一个按钮，可能已在战斗界面")
+
+        if self.上下文.设置.是否采集进攻界面图像:
+            self.采集当前画面()
 
         资源数据 = self.识别当前资源(上下文)
         self.打印状态信息(上下文, 搜索次数, 资源数据)
