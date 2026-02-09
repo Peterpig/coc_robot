@@ -64,3 +64,5 @@ __pypackages__/
 /自动启动脚本/启动_模拟器索引0.bat
 /CLAUDE.md
 /.claude/settings.local.json
+/dataset/
+/.claude
