@@ -7,7 +7,7 @@ import urllib.request
 import json
 
 仓库名 = "qilishidai/coc_robot"
-版本缓存文件 = "最新远程版本缓存.txt"
+版本缓存文件 = "最新远程版本缓存.json"
 
 def 获取本地版本号():
     """
@@ -86,14 +86,29 @@ def 获取本地易读版本号():
         return f"版本 {tag版本}（{附加说明}）"
 
 def 读取缓存版本():
+    """读取缓存的版本信息，返回 (版本号, 更新内容, 发布时间)"""
     if os.path.exists(版本缓存文件):
-        with open(版本缓存文件, "r", encoding="utf-8") as f:
-            return f.read().strip()
-    return "unknown"
+        try:
+            with open(版本缓存文件, "r", encoding="utf-8") as f:
+                数据 = json.load(f)
+                return (
+                    数据.get("version", "unknown"),
+                    数据.get("body", ""),
+                    数据.get("published_at", "")
+                )
+        except (json.JSONDecodeError, Exception):
+            pass
+    return "unknown", "", ""
 
-def 写入缓存版本(版本):
+def 写入缓存版本(版本, 更新内容="", 发布时间=""):
+    """写入版本缓存，包含更新内容"""
+    数据 = {
+        "version": 版本,
+        "body": 更新内容,
+        "published_at": 发布时间
+    }
     with open(版本缓存文件, "w", encoding="utf-8") as f:
-        f.write(版本)
+        json.dump(数据, f, ensure_ascii=False, indent=2)
 
 def 异步更新远程最新版本():
     def 后台任务():
@@ -104,7 +119,9 @@ def 异步更新远程最新版本():
                     数据 = resp.read()
                     解析 = json.loads(数据)
                     最新版本 = 解析.get("tag_name", "unknown")
-                    写入缓存版本(最新版本)
+                    更新内容 = 解析.get("body", "")
+                    发布时间 = 解析.get("published_at", "")
+                    写入缓存版本(最新版本, 更新内容, 发布时间)
                     print(f"[更新] 获取到远程最新版本: {最新版本}")
                 else:
                     print(f"[更新] 请求失败，状态码：{resp.status}")
@@ -114,13 +131,27 @@ def 异步更新远程最新版本():
     线程 = threading.Thread(target=后台任务, daemon=True)
     线程.start()
 
-def 是否需要更新():
+def 检查更新():
+    """
+    检查是否有新版本可用
+    返回: (是否需要更新, 本地版本, 远程版本, 更新内容, 发布时间)
+    """
     本地版本 = 获取本地版本号()
-    远程版本 = 读取缓存版本()
+    远程版本, 更新内容, 发布时间 = 读取缓存版本()
+
+    if 远程版本 == "unknown":
+        return False, 本地版本, 远程版本, "", ""
+
+    需要更新 = 本地版本 != 远程版本
+    return 需要更新, 本地版本, 远程版本, 更新内容, 发布时间
+
+def 是否需要更新():
+    """兼容旧接口，仅返回是否需要更新"""
+    需要更新, 本地版本, 远程版本, _, _ = 检查更新()
     if 远程版本 == "unknown":
         print("远程版本未知，无法判断是否需要更新")
         return False
-    if 本地版本 != 远程版本:
+    if 需要更新:
         print(f"检测到新版本: 本地 {本地版本} < 远程 {远程版本}")
         print("下载地址为:https://github.com/qilishidai/coc_robot/releases/latest")
         return True

@@ -66,3 +66,4 @@ __pypackages__/
 /.claude/settings.local.json
 /dataset/
 /.claude
+/最新远程版本缓存.json

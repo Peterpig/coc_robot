@@ -71,16 +71,95 @@ jobs:
         echo "当前版本: $CURRENT_TAG"
         echo "上一个版本: $PREVIOUS_TAG"
 
+        # 开始生成 Release Body
+        cat > body.md << 'HEADER'
+        ## 📦 版本信息
+
+        HEADER
+
+        echo "- **版本号**: \`$CURRENT_TAG\`" >> body.md
+        echo "- **构建时间**: ${{ env.BUILD_TIME }}" >> body.md
+        echo "- **上一版本**: \`${PREVIOUS_TAG:-无}\`" >> body.md
+        echo "" >> body.md
+
+        # 获取提交列表
         if [ -z "$PREVIOUS_TAG" ]; then
-          LOGS=$(git log --oneline)
+          COMMITS=$(git log --pretty=format:"%h|%s|%an|%ad" --date=short)
+          COMMIT_COUNT=$(git rev-list --count HEAD)
         else
-          LOGS=$(git log --oneline ${PREVIOUS_TAG}..${CURRENT_TAG})
+          COMMITS=$(git log --pretty=format:"%h|%s|%an|%ad" --date=short ${PREVIOUS_TAG}..${CURRENT_TAG})
+          COMMIT_COUNT=$(git rev-list --count ${PREVIOUS_TAG}..${CURRENT_TAG})
         fi
 
-        echo "构建于 ${{ env.BUILD_TIME }}" > body.md
+        echo "- **提交数量**: ${COMMIT_COUNT} 个提交" >> body.md
         echo "" >> body.md
-        echo "提交日志：" >> body.md
-        echo "$LOGS" >> body.md
+
+        # 分类提交
+        echo "## 📝 更新内容" >> body.md
+        echo "" >> body.md
+
+        # 新功能
+        NEW_FEATURES=$(echo "$COMMITS" | grep -iE "\|.*(新增|添加|支持|feat|add|new)" | head -20 || true)
+        if [ -n "$NEW_FEATURES" ]; then
+          echo "### ✨ 新功能" >> body.md
+          echo "$NEW_FEATURES" | while IFS='|' read -r hash msg author date; do
+            echo "- ${msg} (\`${hash}\` by ${author})" >> body.md
+          done
+          echo "" >> body.md
+        fi
+
+        # Bug修复
+        BUG_FIXES=$(echo "$COMMITS" | grep -iE "\|.*(修复|修正|fix|bug|repair)" | head -20 || true)
+        if [ -n "$BUG_FIXES" ]; then
+          echo "### 🐛 Bug 修复" >> body.md
+          echo "$BUG_FIXES" | while IFS='|' read -r hash msg author date; do
+            echo "- ${msg} (\`${hash}\` by ${author})" >> body.md
+          done
+          echo "" >> body.md
+        fi
+
+        # 优化改进
+        IMPROVEMENTS=$(echo "$COMMITS" | grep -iE "\|.*(优化|改进|改善|提升|refactor|improve|perf|update)" | head -20 || true)
+        if [ -n "$IMPROVEMENTS" ]; then
+          echo "### 🚀 优化改进" >> body.md
+          echo "$IMPROVEMENTS" | while IFS='|' read -r hash msg author date; do
+            echo "- ${msg} (\`${hash}\` by ${author})" >> body.md
+          done
+          echo "" >> body.md
+        fi
+
+        # 其他提交（排除已分类的）
+        OTHER_COMMITS=$(echo "$COMMITS" | grep -viE "\|.*(新增|添加|支持|feat|add|new|修复|修正|fix|bug|repair|优化|改进|改善|提升|refactor|improve|perf|update)" | head -10 || true)
+        if [ -n "$OTHER_COMMITS" ]; then
+          echo "### 📋 其他更改" >> body.md
+          echo "$OTHER_COMMITS" | while IFS='|' read -r hash msg author date; do
+            echo "- ${msg} (\`${hash}\` by ${author})" >> body.md
+          done
+          echo "" >> body.md
+        fi
+
+        # 完整提交日志（折叠）
+        echo "<details>" >> body.md
+        echo "<summary>📜 完整提交日志</summary>" >> body.md
+        echo "" >> body.md
+        echo "| 提交 | 说明 | 作者 | 日期 |" >> body.md
+        echo "|------|------|------|------|" >> body.md
+        echo "$COMMITS" | head -50 | while IFS='|' read -r hash msg author date; do
+          echo "| \`${hash}\` | ${msg} | ${author} | ${date} |" >> body.md
+        done
+        echo "" >> body.md
+        echo "</details>" >> body.md
+        echo "" >> body.md
+
+        # 下载说明
+        echo "## 📥 下载说明" >> body.md
+        echo "" >> body.md
+        echo "1. 下载下方的压缩包" >> body.md
+        echo "2. 解压到任意目录" >> body.md
+        echo "3. 配置环境后执行 \`python UI入口.py\`" >> body.md
+        echo "" >> body.md
+        echo "---" >> body.md
+        echo "*此版本由 GitHub Actions 自动构建发布*" >> body.md
 
     - name: 发布到GitHub
       uses: softprops/action-gh-release@v1

@@ -3,7 +3,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
 from 主入口 import 机器人监控中心
-from 工具包.版本管理 import 获取本地版本号, 异步更新远程最新版本, 是否需要更新
+from 工具包.版本管理 import 获取本地版本号, 异步更新远程最新版本, 检查更新
 from 数据库.任务数据库 import 机器人设置, 任务数据库
 from sv_ttk import set_theme
 
@@ -13,6 +13,95 @@ from 界面.样式配置 import 配置现代化样式
 from 界面.日志面板 import 日志面板
 from 界面.机器人管理面板 import 机器人管理面板
 from 界面.配置管理面板 import 配置管理面板
+
+
+def 显示更新提示窗口(父窗口, 本地版本, 远程版本, 更新内容):
+    """显示更新提示窗口，包含更新内容"""
+    更新窗口 = tk.Toplevel(父窗口)
+    更新窗口.title("发现新版本")
+    更新窗口.transient(父窗口)
+    更新窗口.grab_set()
+
+    # 窗口尺寸和居中
+    宽度, 高度 = 500, 400
+    屏幕宽 = 更新窗口.winfo_screenwidth()
+    屏幕高 = 更新窗口.winfo_screenheight()
+    x = (屏幕宽 - 宽度) // 2
+    y = (屏幕高 - 高度) // 2
+    更新窗口.geometry(f"{宽度}x{高度}+{x}+{y}")
+    更新窗口.resizable(False, False)
+
+    # 标题
+    标题框架 = ttk.Frame(更新窗口)
+    标题框架.pack(fill=tk.X, padx=20, pady=(20, 10))
+
+    ttk.Label(
+        标题框架,
+        text="🎉 发现新版本",
+        font=("Microsoft YaHei UI", 14, "bold")
+    ).pack(anchor=tk.W)
+
+    ttk.Label(
+        标题框架,
+        text=f"当前版本: {本地版本}  →  最新版本: {远程版本}",
+        font=("Microsoft YaHei UI", 10)
+    ).pack(anchor=tk.W, pady=(5, 0))
+
+    # 分隔线
+    ttk.Separator(更新窗口, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=20, pady=10)
+
+    # 更新内容标签
+    ttk.Label(
+        更新窗口,
+        text="更新内容:",
+        font=("Microsoft YaHei UI", 10, "bold")
+    ).pack(anchor=tk.W, padx=20)
+
+    # 更新内容文本框
+    内容框架 = ttk.Frame(更新窗口)
+    内容框架.pack(fill=tk.BOTH, expand=True, padx=20, pady=(5, 10))
+
+    文本框 = tk.Text(
+        内容框架,
+        wrap=tk.WORD,
+        font=("Microsoft YaHei UI", 9),
+        relief=tk.FLAT,
+        bg="#f5f5f5",
+        padx=10,
+        pady=10
+    )
+    滚动条 = ttk.Scrollbar(内容框架, orient=tk.VERTICAL, command=文本框.yview)
+    文本框.configure(yscrollcommand=滚动条.set)
+
+    滚动条.pack(side=tk.RIGHT, fill=tk.Y)
+    文本框.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    # 插入更新内容
+    显示内容 = 更新内容 if 更新内容.strip() else "暂无更新说明"
+    文本框.insert(tk.END, 显示内容)
+    文本框.configure(state=tk.DISABLED)
+
+    # 按钮区域
+    按钮框架 = ttk.Frame(更新窗口)
+    按钮框架.pack(fill=tk.X, padx=20, pady=(0, 20))
+
+    def 打开下载页面():
+        import webbrowser
+        webbrowser.open("https://github.com/qilishidai/coc_robot/releases/latest")
+
+    ttk.Button(
+        按钮框架,
+        text="前往下载",
+        command=打开下载页面,
+        width=12
+    ).pack(side=tk.LEFT)
+
+    ttk.Button(
+        按钮框架,
+        text="稍后再说",
+        command=更新窗口.destroy,
+        width=12
+    ).pack(side=tk.RIGHT)
 
 
 class 增强型机器人控制界面:
@@ -206,5 +295,10 @@ if __name__ == "__main__":
     监控中心 = 机器人监控中心(日志队列)
     root = tk.Tk()
     界面 = 增强型机器人控制界面(root, 监控中心)
-    是否需要更新()
+
+    # 检查更新并显示更新内容
+    需要更新, 本地版本, 远程版本, 更新内容, _ = 检查更新()
+    if 需要更新:
+        root.after(500, lambda: 显示更新提示窗口(root, 本地版本, 远程版本, 更新内容))
+
     root.mainloop()
